@@ -1,0 +1,15 @@
+{
+  "name": "defi-core",
+  "version": "1.0.0",
+  "description": "",
+  "main": "aave.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ethers": "^6.15.0"
+  }
+}
