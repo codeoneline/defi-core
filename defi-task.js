@@ -22,9 +22,9 @@
 //                 }
 //               }
 //             }
-// - 后端：Defi数据抓取，Vault持仓和余额抓取，跨链手续费抓取，AI输入提示词组织； jishiwu
-// - 后端：AI系统提示词设计，调用Deepseek API，获取返回的思维链和JSON输出，按照JSON输出调用合约； zhanglihua
-// - 后端：用户钱包资产信息获取API；zhanglihua
+- 后端：Defi数据抓取，Vault持仓和余额抓取，跨链手续费抓取，AI输入提示词组织； jishiwu
+- 后端：AI系统提示词设计，调用Deepseek API，获取返回的思维链和JSON输出，按照JSON输出调用合约； zhanglihua
+- 后端：用户钱包资产信息获取API；zhanglihua
 
-// 另外根据lini的最新消息，初期上线就要支持USDC, USDT, WBTC, ETH, WAN 这5种资产。可以考虑一下如何实现才能方便扩展。
-// 平台：'aave', 'compound', 'venus','benqi','makerdao'
+另外根据lini的最新消息，初期上线就要支持USDC, USDT, WBTC, ETH, WAN 这5种资产。可以考虑一下如何实现才能方便扩展。
+平台：'aave', 'compound', 'venus','benqi','makerdao'

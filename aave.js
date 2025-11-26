@@ -1,5 +1,7 @@
 const { ethers } = require('ethers');
 
+// https://aave.com/docs/resources/addresses
+
 // Aave V3 合约地址（以太坊主网）
 const ADDRESSES = {
   ethereum: {
