@@ -10,12 +10,6 @@ const ADDRESSES = {
     UiPoolDataProvider: markets.AaveV3Ethereum.UI_POOL_DATA_PROVIDER,
     PoolAddressesProvider: markets.AaveV3Ethereum.POOL_ADDRESSES_PROVIDER,
     RewardsController: markets.AaveV3Ethereum.DEFAULT_INCENTIVES_CONTROLLER,
-
-    // PoolDataProvider: '0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3',
-    // Pool: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
-    // UiPoolDataProvider: '0x91c0eA31b49B69Ea18607702c5d9aC360bf3dE7d',
-    // PoolAddressesProvider: '0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e',
-
   },
   // 可以添加其他网络的地址
   polygon: {
@@ -41,7 +35,7 @@ const POOL_DATA_PROVIDER_ABI = [
 ];
 
 const UI_POOL_DATA_PROVIDER_ABI = [
-  'function getReservesData(address addressesProvider) external view returns ((address underlyingAsset, string name, string symbol, uint256 decimals, uint256 baseLTVasCollateral, uint256 reserveLiquidationThreshold, uint256 reserveLiquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen, uint128 liquidityIndex, uint128 variableBorrowIndex, uint128 liquidityRate, uint128 variableBorrowRate, uint128 stableBorrowRate, uint40 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint256 availableLiquidity, uint256 totalPrincipalStableDebt, uint256 averageStableRate, uint256 stableDebtLastUpdateTimestamp, uint256 totalScaledVariableDebt, uint256 priceInMarketReferenceCurrency, address priceOracle, uint256 variableRateSlope1, uint256 variableRateSlope2, uint256 stableRateSlope1, uint256 stableRateSlope2, uint256 baseStableBorrowRate, uint256 baseVariableBorrowRate, uint256 optimalUsageRatio, bool isPaused, bool isSiloedBorrowing, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt, bool flashLoanEnabled, uint256 debtCeiling, uint256 debtCeilingDecimals, uint8 eModeCategoryId, uint256 borrowCap, uint256 supplyCap, uint16 eModeLtv, uint16 eModeLiquidationThreshold, uint16 eModeLiquidationBonus, address eModePriceSource, string eModeLabel, bool borrowableInIsolation)[])'
+  'function getReservesData(address provider) external view returns (tuple(address underlyingAsset, string name, string symbol, uint256 decimals, uint256 baseLTVasCollateral, uint256 reserveLiquidationThreshold, uint256 reserveLiquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen, uint128 liquidityIndex, uint128 variableBorrowIndex, uint128 liquidityRate, uint128 variableBorrowRate, uint128 stableBorrowRate, uint40 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint256 availableLiquidity, uint256 totalPrincipalStableDebt, uint256 averageStableRate, uint256 stableDebtLastUpdateTimestamp, uint256 totalScaledVariableDebt, uint256 priceInMarketReferenceCurrency, address priceOracle, uint256 variableRateSlope1, uint256 variableRateSlope2, uint256 stableRateSlope1, uint256 stableRateSlope2, uint256 baseStableBorrowRate, uint256 baseVariableBorrowRate, uint256 optimalUsageRatio, bool isPaused, bool isSiloedBorrowing, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt, bool flashLoanEnabled, uint256 debtCeiling, uint256 debtCeilingDecimals, uint8 eModeCategoryId, uint256 borrowCap, uint256 supplyCap, uint16 eModeLtv, uint16 eModeLiquidationThreshold, uint16 eModeLiquidationBonus, address eModePriceSource, string eModeLabel, bool borrowableInIsolation, uint256 virtualAccActive, uint256 virtualUnderlyingBalance)[] memory)'
 ];
 
 // 添加 RewardsController ABI
@@ -55,8 +49,16 @@ const REWARDS_CONTROLLER_ABI = [
 /**
  * 初始化 Provider 和 Contracts
  */
-const eth_rpc = 'https://eth-sepolia.api.onfinality.io/public'
-function initializeProvider(rpcUrl = eth_rpc) {
+const eth_rpc = [
+  "https://eth.meowrpc.com",
+  "https://rpc.mevblocker.io",
+  "https://ethereum.publicnode.com",
+  "https://gateway.tenderly.co/public/mainnet",
+  "https://1rpc.io/eth",
+  'https://eth.llamarpc.com'
+]
+function initializeProvider(rpcUrl = eth_rpc[0]) {
+// function initializeProvider(rpcUrl = 'https://eth.llamarpc.com') {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   return provider;
 }
@@ -352,6 +354,10 @@ async function compareAssets(assets = ['WETH', 'USDC', 'DAI'], network = 'ethere
 
   return results;
 }
+
+/**
+ * 获取所有资产概览（改进版 - 使用批量单个调用）
+ */
 async function getAllAssetsOverview(network = 'ethereum') {
   console.log(`\n获取 ${network} 网络上所有资产概览...\n`);
 
@@ -398,6 +404,7 @@ async function getAllAssetsOverview(network = 'ethereum') {
 
   return topAssets;
 }
+
 /**
  * 获取所有资产概览（优化版）
  */
@@ -433,10 +440,10 @@ async function main() {
     // await getAssetData('USDC', 'ethereum');
 
     // 示例 2: 比较多个资产
-    // await compareAssets(['WETH', 'USDC', 'DAI'], 'ethereum');
+    await compareAssets(['WETH', 'USDC', 'DAI'], 'ethereum');
 
     // 示例 3: 获取所有资产概览
-    await getAllAssetsOverviewOld('ethereum');
+    // await getAllAssetsOverview('ethereum');
 
   } catch (error) {
     console.error('执行失败:', error);
