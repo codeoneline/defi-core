@@ -64,6 +64,91 @@ function initializeProvider(rpcUrl = eth_rpc[0]) {
 }
 
 /**
+ * 获取 Aave 支持的所有网络
+ */
+function getAaveSupportedNetworks() {
+  // 获取所有 Aave V3 网络
+  const aaveV3Networks = Object.keys(markets)
+    .filter(key => key.startsWith('AaveV3'))
+    .map(key => key.replace('AaveV3', ''));
+
+  // 获取所有 Aave V2 网络
+  const aaveV2Networks = Object.keys(markets)
+    .filter(key => key.startsWith('AaveV2'))
+    .map(key => key.replace('AaveV2', ''));
+
+  console.log('\n📋 Aave V3 部署网络:');
+  console.log(aaveV3Networks.join(', '));
+
+  console.log('\n📋 Aave V2 部署网络:');
+  console.log(aaveV2Networks.join(', '));
+
+  return {
+    v3: aaveV3Networks,
+    v2: aaveV2Networks
+  };
+}
+/**
+ * 获取所有网络的详细信息
+ */
+function getAllAaveNetworks() {
+  const networks = {};
+
+  // 遍历所有 Aave V3 网络
+  Object.keys(markets).forEach(key => {
+    if (key.startsWith('AaveV3')) {
+      const networkName = key.replace('AaveV3', '').toLowerCase();
+      const marketData = markets[key];
+
+      networks[networkName] = {
+        version: 'V3',
+        chainId: marketData.CHAIN_ID,
+        pool: marketData.POOL,
+        poolDataProvider: marketData.AAVE_PROTOCOL_DATA_PROVIDER,
+        oracle: marketData.ORACLE,
+        // 更多合约地址...
+      };
+    }
+  });
+
+  return networks;
+}
+/**
+ * 动态生成所有网络的地址配置
+ */
+function buildNetworkAddresses() {
+  const ADDRESSES = {};
+
+  // V3 网络
+  const v3Networks = [
+    'Ethereum', 'Polygon', 'Avalanche', 'Arbitrum', 'Optimism',
+    'Fantom', 'Harmony', 'Metis', 'Base', 'Gnosis', 'BNB', 
+    'Scroll', 'PolygonZkEvm', 'Sepolia', 'Zksync'
+  ];
+
+  v3Networks.forEach(network => {
+    const marketKey = `AaveV3${network}`;
+    if (markets[marketKey]) {
+      const v3 = {
+        version: 'V3',
+        PoolDataProvider: markets[marketKey].AAVE_PROTOCOL_DATA_PROVIDER,
+        Pool: markets[marketKey].POOL,
+        UiPoolDataProvider: markets[marketKey].UI_POOL_DATA_PROVIDER,
+        PoolAddressesProvider: markets[marketKey].POOL_ADDRESSES_PROVIDER,
+        chainId: markets[marketKey].CHAIN_ID,
+      };
+      if (ADDRESSES[network.toLowerCase()]) {
+        console.log(`same for ${network}: ${JSON.stringify(v3)}`)
+      } else {
+        ADDRESSES[network.toLowerCase()] = v3
+      }
+    }
+  });
+
+  return ADDRESSES;
+}
+
+/**
  * 获取奖励APY
  */
 async function getRewardAPY(provider, network, aTokenAddress) {
@@ -438,13 +523,34 @@ async function main() {
     // 示例 1: 获取 ETH (WETH) 的数据
     // await getAssetData('WETH', 'ethereum');
     // await getAssetData('USDC', 'ethereum');
+    // await getAssetData('WETH', 'polygon');
 
     // 示例 2: 比较多个资产
-    await compareAssets(['WETH', 'USDC', 'DAI'], 'ethereum');
+    // await compareAssets(['WETH', 'USDC', 'DAI'], 'ethereum');
 
     // 示例 3: 获取所有资产概览
     // await getAllAssetsOverview('ethereum');
 
+    // 示例 4: 获取部署在哪些网络
+    // getAaveSupportedNetworks();
+
+
+
+    // 示例 5: 详细查看每个网络的配置
+    // const allNetworks = getAllAaveNetworks();
+    // console.log('\n所有支持的网络:');
+    // console.table(Object.keys(allNetworks).map(name => ({
+    //   网络: name,
+    //   版本: allNetworks[name].version,
+    //   ChainId: allNetworks[name].chainId,
+    //   Pool地址: allNetworks[name].pool
+    // })));
+
+    // 示例 5: 动态生成所有网络的地址配置
+    const ADDRESSES = buildNetworkAddresses();
+    console.log('\n可用网络:', Object.keys(ADDRESSES));
+    console.log('\n可用网络:', JSON.stringify(ADDRESSES, null, 2));
+    
   } catch (error) {
     console.error('执行失败:', error);
   }
