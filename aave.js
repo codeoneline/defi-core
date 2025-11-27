@@ -1,19 +1,26 @@
-const { ethers } = require('ethers');
-
-// https://aave.com/docs/resources/addresses
+const { ethers } = require('ethers-v6');
+// const { UiPoolDataProvider, ChainId } = require('@aave/contract-helpers');
+const markets = require('@bgd-labs/aave-address-book');
 
 // Aave V3 合约地址（以太坊主网）
 const ADDRESSES = {
   ethereum: {
-    PoolDataProvider: '0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3',
-    Pool: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
-    UiPoolDataProvider: '0x91c0eA31b49B69Ea18607702c5d9aC360bf3dE7d',
-    PoolAddressesProvider: '0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e',
+    PoolDataProvider: markets.AaveV3Ethereum.AAVE_PROTOCOL_DATA_PROVIDER,
+    Pool: markets.AaveV3Ethereum.POOL,
+    UiPoolDataProvider: markets.AaveV3Ethereum.UI_POOL_DATA_PROVIDER,
+    PoolAddressesProvider: markets.AaveV3Ethereum.POOL_ADDRESSES_PROVIDER,
+    RewardsController: markets.AaveV3Ethereum.DEFAULT_INCENTIVES_CONTROLLER,
+
+    // PoolDataProvider: '0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3',
+    // Pool: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
+    // UiPoolDataProvider: '0x91c0eA31b49B69Ea18607702c5d9aC360bf3dE7d',
+    // PoolAddressesProvider: '0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e',
+
   },
   // 可以添加其他网络的地址
   polygon: {
-    PoolDataProvider: '0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654',
-    Pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+    PoolDataProvider: markets.AaveV3Polygon.AAVE_PROTOCOL_DATA_PROVIDER,
+    Pool: markets.AaveV3Polygon.POOL,
   }
 };
 
@@ -34,16 +41,54 @@ const POOL_DATA_PROVIDER_ABI = [
 ];
 
 const UI_POOL_DATA_PROVIDER_ABI = [
-  'function getReservesData(address provider) external view returns (tuple(address underlyingAsset, string name, string symbol, uint256 decimals, uint256 baseLTVasCollateral, uint256 reserveLiquidationThreshold, uint256 reserveLiquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen, uint128 liquidityIndex, uint128 variableBorrowIndex, uint128 liquidityRate, uint128 variableBorrowRate, uint128 stableBorrowRate, uint40 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint256 availableLiquidity, uint256 totalPrincipalStableDebt, uint256 averageStableRate, uint256 stableDebtLastUpdateTimestamp, uint256 totalScaledVariableDebt, uint256 priceInMarketReferenceCurrency, address priceOracle, uint256 variableRateSlope1, uint256 variableRateSlope2, uint256 stableRateSlope1, uint256 stableRateSlope2, uint256 baseStableBorrowRate, uint256 baseVariableBorrowRate, uint256 optimalUsageRatio, bool isPaused, bool isSiloedBorrowing, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt, bool flashLoanEnabled, uint256 debtCeiling, uint256 debtCeilingDecimals, uint8 eModeCategoryId, uint256 borrowCap, uint256 supplyCap, uint16 eModeLtv, uint16 eModeLiquidationThreshold, uint16 eModeLiquidationBonus, address eModePriceSource, string eModeLabel, bool borrowableInIsolation, uint256 virtualAccActive, uint256 virtualUnderlyingBalance)[] memory)'
+  'function getReservesData(address addressesProvider) external view returns ((address underlyingAsset, string name, string symbol, uint256 decimals, uint256 baseLTVasCollateral, uint256 reserveLiquidationThreshold, uint256 reserveLiquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen, uint128 liquidityIndex, uint128 variableBorrowIndex, uint128 liquidityRate, uint128 variableBorrowRate, uint128 stableBorrowRate, uint40 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint256 availableLiquidity, uint256 totalPrincipalStableDebt, uint256 averageStableRate, uint256 stableDebtLastUpdateTimestamp, uint256 totalScaledVariableDebt, uint256 priceInMarketReferenceCurrency, address priceOracle, uint256 variableRateSlope1, uint256 variableRateSlope2, uint256 stableRateSlope1, uint256 stableRateSlope2, uint256 baseStableBorrowRate, uint256 baseVariableBorrowRate, uint256 optimalUsageRatio, bool isPaused, bool isSiloedBorrowing, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt, bool flashLoanEnabled, uint256 debtCeiling, uint256 debtCeilingDecimals, uint8 eModeCategoryId, uint256 borrowCap, uint256 supplyCap, uint16 eModeLtv, uint16 eModeLiquidationThreshold, uint16 eModeLiquidationBonus, address eModePriceSource, string eModeLabel, bool borrowableInIsolation)[])'
+];
+
+// 添加 RewardsController ABI
+const REWARDS_CONTROLLER_ABI = [
+  'function getRewardsData(address asset, address reward) external view returns (uint256, uint256, uint256, uint256)',
+  'function getAllUserRewards(address[] calldata assets, address user) external view returns (address[] memory rewardsList, uint256[] memory unclaimedAmounts)',
+  'function getRewardsByAsset(address asset) external view returns (address[] memory)',
+  'function getAssetIndex(address asset, address reward) external view returns (uint256, uint256)'
 ];
 
 /**
  * 初始化 Provider 和 Contracts
  */
-function initializeProvider(rpcUrl = 'https://eth.llamarpc.com') {
+const eth_rpc = 'https://eth-sepolia.api.onfinality.io/public'
+function initializeProvider(rpcUrl = eth_rpc) {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   return provider;
 }
+
+/**
+ * 获取奖励APY
+ */
+async function getRewardAPY(provider, network, aTokenAddress) {
+  const rewardsController = new ethers.Contract(
+    ADDRESSES[network].RewardsController,
+    REWARDS_CONTROLLER_ABI,
+    provider
+  );
+
+  try {
+    // 获取该资产的奖励代币列表
+    const rewardTokens = await rewardsController.getRewardsByAsset(aTokenAddress);
+    
+    if (rewardTokens.length === 0) {
+      return 0; // 没有奖励
+    }
+
+    // 这里需要获取每个奖励代币的价格和分发速率来计算APY
+    // 实际实现需要调用价格预言机和计算奖励分发率
+    
+    return 0; // 简化处理
+  } catch (error) {
+    console.error('获取奖励数据失败:', error.message);
+    return 0;
+  }
+}
+
 
 /**
  * 将 RAY 单位转换为百分比
@@ -245,7 +290,37 @@ async function getAssetData(assetSymbol = 'WETH', network = 'ethereum') {
     throw error;
   }
 }
-
+/**
+ * 获取完整的APY数据（分离base和reward）
+ */
+async function getReserveDataWithRewards(provider, network, assetAddress) {
+  // 获取基础数据
+  const baseData = await getReserveData(provider, network, assetAddress);
+  
+  // 获取aToken地址（用于查询奖励）
+  const poolDataProvider = new ethers.Contract(
+    ADDRESSES[network].PoolDataProvider,
+    [
+      'function getReserveTokensAddresses(address asset) external view returns (address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress)'
+    ],
+    provider
+  );
+  
+  const { aTokenAddress } = await poolDataProvider.getReserveTokensAddresses(assetAddress);
+  
+  // 获取奖励APY
+  const rewardAPY = await getRewardAPY(provider, network, aTokenAddress);
+  
+  return {
+    ...baseData,
+    deposit: {
+      ...baseData.deposit,
+      apyBase: baseData.deposit.apy, // 基础APY就是原来计算的APY
+      apyReward: rewardAPY,           // 奖励APY
+      apyTotal: (parseFloat(baseData.deposit.apy) + rewardAPY).toFixed(4)
+    }
+  };
+}
 /**
  * 获取多个资产的数据对比
  */
@@ -277,11 +352,56 @@ async function compareAssets(assets = ['WETH', 'USDC', 'DAI'], network = 'ethere
 
   return results;
 }
+async function getAllAssetsOverview(network = 'ethereum') {
+  console.log(`\n获取 ${network} 网络上所有资产概览...\n`);
 
+  const provider = initializeProvider();
+  
+  // 第一步：获取所有资产列表
+  const reserves = await getAllReserves(provider, network);
+  console.log(`找到 ${reserves.length} 个资产\n`);
+
+  const results = [];
+
+  // 第二步：逐个获取详细数据
+  for (const reserve of reserves) {
+    try {
+      const data = await getReserveData(provider, network, reserve.address);
+      
+      results.push({
+        symbol: reserve.symbol,
+        address: reserve.address,
+        tvl: parseFloat(data.tvl.formatted).toFixed(2),
+        depositAPY: data.deposit.apy,
+        borrowAPY: data.borrow.variable.apy,
+      });
+      
+      // 避免请求过快
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (error) {
+      console.error(`获取 ${reserve.symbol} 数据失败:`, error.message);
+    }
+  }
+
+  // 按 TVL 排序并显示前15个
+  const topAssets = results
+    .sort((a, b) => parseFloat(b.tvl) - parseFloat(a.tvl))
+    .slice(0, 15);
+
+  console.log('前 15 个资产（按 TVL 排序）:');
+  console.table(topAssets.map(asset => ({
+    资产: asset.symbol,
+    TVL: asset.tvl,
+    '存款APY': `${asset.depositAPY}%`,
+    '借款APY': `${asset.borrowAPY}%`,
+  })));
+
+  return topAssets;
+}
 /**
  * 获取所有资产概览（优化版）
  */
-async function getAllAssetsOverview(network = 'ethereum') {
+async function getAllAssetsOverviewOld(network = 'ethereum') {
   console.log(`\n获取 ${network} 网络上所有资产概览...\n`);
 
   const provider = initializeProvider();
@@ -307,14 +427,16 @@ async function getAllAssetsOverview(network = 'ethereum') {
 // 主函数示例
 async function main() {
   try {
+    // USDC,USDT,WBTC,WETH,WAN
     // 示例 1: 获取 ETH (WETH) 的数据
-    await getAssetData('WETH', 'ethereum');
+    // await getAssetData('WETH', 'ethereum');
+    // await getAssetData('USDC', 'ethereum');
 
     // 示例 2: 比较多个资产
     // await compareAssets(['WETH', 'USDC', 'DAI'], 'ethereum');
 
     // 示例 3: 获取所有资产概览
-    // await getAllAssetsOverview('ethereum');
+    await getAllAssetsOverviewOld('ethereum');
 
   } catch (error) {
     console.error('执行失败:', error);
@@ -325,11 +447,11 @@ async function main() {
 main();
 
 // 导出函数
-module.exports = {
-  getReserveData,
-  getAssetData,
-  compareAssets,
-  getAllReservesDataOptimized,
-  getAllAssetsOverview,
-  getAllReserves,
-};
+// module.exports = {
+//   getReserveData,
+//   getAssetData,
+//   compareAssets,
+//   getAllReservesDataOptimized,
+//   getAllAssetsOverview,
+//   getAllReserves,
+// };

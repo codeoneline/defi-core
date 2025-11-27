@@ -11,11 +11,11 @@
   "license": "ISC",
   "dependencies": {
     "@aave/contract-helpers": "^1.36.2",
-    "@aave/math-utils": "^1.36.2",
     "@bgd-labs/aave-address-book": "^4.36.3",
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "ethers": "^5.8.0",
+    "ethers-v6": "npm:ethers@^6.15.0",
     "web3": "^1.10.4"
   }
 }

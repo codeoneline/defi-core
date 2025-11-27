@@ -1,7 +1,7 @@
 // AAVE 多链 APY 和 TVL 数据获取工具
 // 安装依赖: npm install ethers @bgd-labs/aave-address-book @aave/contract-helpers
 
-const { ethers } = require('ethers');
+const { ethers } = require('ethers-v5');
 const { UiPoolDataProvider, ChainId } = require('@aave/contract-helpers');
 const markets = require('@bgd-labs/aave-address-book');
 const { formatReserves } = require('@aave/math-utils');
@@ -64,8 +64,8 @@ const CHAINS_CONFIG = {
   }
 };
 
-// 目标资产的常见地址映射（不同链可能不同）
-const ASSET_SYMBOLS = ['USDC', 'USDT', 'WBTC', 'WETH', 'WAN'];
+// 目标资产的常见地址映射（不同链可能不同）'WAN'
+const ASSET_SYMBOLS = ['USDC', 'USDT', 'WBTC', 'WETH'];
 
 /**
  * 从单个链获取储备数据
