@@ -145,7 +145,7 @@ class VenusDataFetcher {
       'BETH': 'venus-beth',
       'asBNB': 'astherus-staked-bnb',
       'slisBNB': 'synclub-staked-bnb',
-      "yvWETH-1": 'weth-yvault"'
+      "yvWETH-1": 'weth-yvault',
     };
     const id = symbolMap[symbol]
     // 缓存价格，避免重复请求
