@@ -1,3 +1,9 @@
 我还希望通过合约获取compound平台,venus平台，benqi平台，makerdao平台上的某种资产比如ETH的APY和TVL，该怎么写，请用nodejs实现？
 
 借贷平台AAVE在哪些链上部署合约，怎么获取？在这些链上的部署地址是什么，怎么获取？我希望通过所有部署在链上合约获取USDC, USDT, WBTC, ETH, WAN这五种资产的APY和TVL，该怎么写，请用nodejs实现？
+
+借贷平台compound在哪些链上部署合约，怎么获取？在这些链上的部署地址是什么，怎么获取？我希望通过所有部署在链上合约获取USDC, USDT, WBTC, ETH, WAN这五种资产的APY和TVL，该怎么写，请用nodejs实现？
+
+借贷平台venus在哪些链上部署合约，怎么获取？在这些链上的部署地址是什么，怎么获取？我希望通过所有部署在链上合约获取USDC, USDT, WBTC, ETH, WAN这五种资产的APY和TVL，该怎么写，请用nodejs实现？
+
+借贷平台benqi在哪些链上部署合约，怎么获取？在这些链上的部署地址是什么，怎么获取？我希望通过所有部署在链上合约获取USDC, USDT, WBTC, ETH, WAN这五种资产的APY和TVL，该怎么写，请用nodejs实现？
