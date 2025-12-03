@@ -1,6 +1,7 @@
 const axios = require('axios');
 const fs = require('fs')
 const path = require('path')
+// https://gateway-arbitrum.network.thegraph.com/api/5a1340b49fa9efe0021452daa260564e/subgraphs/id/Htf6Hh1qgkvxQxqbcv4Jp5AatsaiY5dNLVcySkpCaxQ8
 
 // DeFiLlama API 基础 URL
 const BASE_URL = 'https://api.llama.fi';
@@ -89,18 +90,61 @@ async function getAssetAPYAndTVL(assetSymbol = 'ETH') {
     console.log(`✓ 找到 ${assetPools.length} 个包含 ${assetSymbol} 的池子\n`);
 
     // 3. 按 APY 排序, 或按tvlUsd排序
+    // const keywords = ['aave', 'compound', 'venus', 'benqi'];
+    const keywords = ['venus'];
     const sortedPools = assetPools
-      .filter(p => p.apy && p.tvlUsd > 0)
+      .filter(p => {
+        return keywords.some(keyword => p.project.includes(keyword))
+      })
       // .sort((a, b) => b.apy - a.apy);
       .sort((a, b) => b.tvlUsd - a.tvlUsd);
+      // sortedPools[]
+      // {
+      //   chain: "BSC",
+      //   project: "venus-core-pool",
+      //   symbol: "USDC",
+      //   tvlUsd: 29573429,
+      //   apyBase: 3.04712,
+      //   apyReward: 0,
+      //   apy: 3.04712,
+      //   rewardTokens: [
+      //     "0xcf6bb5389c92bdda8a3747ddb454cb7a64626c63",
+      //   ],
+      //   pool: "89eba1e5-1b1b-47b6-958b-38138a04c244",
+      //   apyPct1D: 0.03349,
+      //   apyPct7D: 0.16256,
+      //   apyPct30D: -6.57234,
+      //   stablecoin: true,
+      //   ilRisk: "no",
+      //   exposure: "single",
+      //   predictions: {
+      //     predictedClass: "Stable/Up",
+      //     predictedProbability: 80,
+      //     binnedConfidence: 3,
+      //   },
+      //   poolMeta: null,
+      //   mu: 5.33656,
+      //   sigma: 0.19019,
+      //   count: 1244,
+      //   outlier: false,
+      //   underlyingTokens: [
+      //     "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+      //   ],
+      //   il7d: null,
+      //   apyBase7d: null,
+      //   apyMean30d: 3.63862,
+      //   volumeUsd1d: null,
+      //   volumeUsd7d: null,
+      //   apyBaseInception: null,
+      // }
 
     let defiPoolPath = path.resolve(__dirname, "./defi-pool.json")
     fs.writeFileSync(defiPoolPath, JSON.stringify(sortedPools, null, 2))
-    return
 
     // 4. 显示前 10 个最高 APY 的池子
     console.log(`📊 ${assetSymbol} 收益率排行榜（前10）:\n`);
-    sortedPools.slice(0, 10).forEach((pool, index) => {
+    // sortedPools.slice(0, 10).forEach((pool, index) => {
+    sortedPools.forEach((pool, index) => {
       const info = formatPoolInfo(pool);
       console.log(`${index + 1}. ${info.协议名称} - ${info.池子}`);
       console.log(`   链: ${info.链}`);
@@ -176,7 +220,7 @@ async function getProtocolTVLByChain(protocolName) {
 async function main() {
   try {
     // 示例 1: 获取 ETH 的 APY 和 TVL
-    await getAssetAPYAndTVL('ETH');
+    await getAssetAPYAndTVL('USDC');
 
     // 示例 2: 获取 USDC 的数据
     // await getAssetAPYAndTVL('USDC');
