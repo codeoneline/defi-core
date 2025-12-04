@@ -560,64 +560,12 @@ async function main() {
 main();
 
 // 导出函数
-// module.exports = {
-//   getReserveData,
-//   getAssetData,
-//   compareAssets,
-//   getAllReservesDataOptimized,
-//   getAllAssetsOverview,
-//   getAllReserves,
-// };
+module.exports = {
+  getReserveData,
+  getAssetData,
+  compareAssets,
+  getAllReservesDataOptimized,
+  getAllAssetsOverview,
+  getAllReserves,
+};
 
-
-/**
-正在获取 ethereum 网络上 WETH 的数据...
-
-📊 WETH 数据概览:
-
-💰 TVL (总锁仓价值):
-   2997528.049124788743850778 WETH
-
-📈 存款收益率:
-   APR: 1.1707%
-   APY: 1.1776%
-
-📉 浮动借款利率:
-   APR: 1.9346%
-   APY: 1.9534%
-
-📊 稳定借款利率:
-   APR: 0.0000%
-   APY: 0.0000%
-
-💸 总借出量:
-   浮动: 2134016.843188861075025936 WETH
-   稳定: 0.0 WETH
-
-🕐 最后更新: 2025-12-01T03:21:35.000Z
-
-正在获取 ethereum 网络上 USDC 的数据...
-
-📊 USDC 数据概览:
-
-💰 TVL (总锁仓价值):
-   0.004628158934824486 USDC
-
-📈 存款收益率:
-   APR: 3.4010%
-   APY: 3.4595%
-
-📉 浮动借款利率:
-   APR: 4.7531%
-   APY: 4.8678%
-
-📊 稳定借款利率:
-   APR: 0.0000%
-   APY: 0.0000%
-
-💸 总借出量:
-   浮动: 0.003679667527823331 USDC
-   稳定: 0.0 USDC
-
-🕐 最后更新: 2025-12-01T03:21:35.000Z
- */
