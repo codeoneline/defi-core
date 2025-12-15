@@ -90,7 +90,7 @@ async function getAssetAPYAndTVL(assetSymbol = 'ETH') {
     console.log(`✓ 找到 ${assetPools.length} 个包含 ${assetSymbol} 的池子\n`);
 
     // 3. 按 APY 排序, 或按tvlUsd排序
-    const keywords = ['aave', 'compound', 'venus', 'benqi'];
+    const keywords = ['aave-v3', 'compound-v3', 'compound-v2', 'venus-core-pool', 'benqi-lending'];
     // const keywords = ['venus'];
     const sortedPools = assetPools
       .filter(p => {
@@ -220,7 +220,7 @@ async function getProtocolTVLByChain(protocolName) {
 async function main() {
   try {
     // 示例 1: 获取 ETH 的 APY 和 TVL
-    await getAssetAPYAndTVL('BTC');
+    await getAssetAPYAndTVL('WAN');
 
     // 示例 2: 获取 USDC 的数据
     // await getAssetAPYAndTVL('USDC');

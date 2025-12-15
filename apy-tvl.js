@@ -8,6 +8,8 @@ const symbols = {
   'WETH':{},
   'WBTC':{},
 }
+// wan
+// sushiswap - WAN-USDT, 0.07
 const projects = {
   'aave-v3': {
 
