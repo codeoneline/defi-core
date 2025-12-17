@@ -10,6 +10,8 @@ const erc20Abi = require('./abi/abi.erc20.json')
 const multiCallAbi = require('./abi/abi.multicall2.json')
 const tokenManagerAbi = require('./abi/abi.TokenManagerDelegateV2.json')
 const adapterAbi = require('./abi/abi.IAdapter.json')
+const crossConfigAbi = require('./abi/abi.ConfigurationDelegate.json')
+const crossAbi = require('./abi/abi.CrossDelegateV4.json')
 
 // 默认：chain.decimals = 18
 const defiChainConfigs = {
@@ -35,6 +37,8 @@ const defiChainConfigs = {
       }
     },
     multicallAddr: "0xeefba1e63905ef1d7acba5a8513c70307c1ce441",
+    crossScAddr: '0xfceaaaeb8d564a9d0e71ef36f027b9d162bc334e',
+
     tokenManagerAddr: '0xbab93311de250b5b422c705129b3617b3cb6e9e1',
   },
   "Arbitrum": {
@@ -54,6 +58,8 @@ const defiChainConfigs = {
       }
     },
     multicallAddr: "0xb66f96e30d6a0ae64d24e392bb2dbd25155cb3a6",
+    crossScAddr: '0xf7ba155556e2cd4dfe3fe26e506a14d2f4b97613',
+
     tokenManagerAddr: '0xc928c8e48647c8b0ce550c2352087b1cf5c6111e',
   },
   "Wanchain": {
@@ -71,7 +77,10 @@ const defiChainConfigs = {
       }
     },
     multicallAddr: "0xba5934ab3056fca1fa458d30fbb3810c3eb5145f",
+    crossScAddr: '0xe85b0D89CbC670733D6a40A9450D8788bE13da47',
+
     tokenManagerAddr: '0x9fdf94dff979dbecc2c1a16904bdfb41d305053a',
+    crossConfigAddr: '0x6Dc2fC72584BfFa35Cc6D521a22081dD0217f3b6',
   },
   "BSC": {
     bip44: 2147484362,
@@ -92,6 +101,8 @@ const defiChainConfigs = {
       }
     },
     multicallAddr: "0x023a33445f11c978f8a99e232e1c526ae3c0ad70",
+    crossScAddr: '0xc3711bdbe7e3063bf6c22e7fed42f782ac82baee',
+
     tokenManagerAddr: '0x39af91cba3aed00e9b356ecc3675c7ef309017dd',
   },
   "Polygon": {
@@ -111,6 +122,8 @@ const defiChainConfigs = {
       }
     },
     multicallAddr: "0x1bbc16260d5d052f1493b8f2aeee7888fed1e9ab",
+    crossScAddr: '0x2216072a246a84f7b9ce0f1415dd239c9bf201ab',
+
     tokenManagerAddr: "0xc928c8e48647c8b0ce550c2352087b1cf5c6111e",
   },
   "Optimism": {
@@ -130,6 +143,8 @@ const defiChainConfigs = {
       }
     },
     multicallAddr: "0x2dc0e2aa608532da689e89e237df582b783e552c",
+    crossScAddr: '0xc6ae1db6c66d909f7bfeeeb24f9adb8620bf9dbf',
+
     tokenManagerAddr: "0x1ed3538383bbfdb80343b18f85d6c5a5fb232fb6",
   },
   "Avalanche": {
@@ -148,6 +163,8 @@ const defiChainConfigs = {
       }
     },
     multicallAddr: "0xa4726706935901fe7dd0f23cf5d4fb19867dfc88",
+    crossScAddr: '0x74e121a34a66d54c33f3291f2cdf26b1cd037c3a',
+
     tokenManagerAddr: "0xf06d72375d3bf5ab1a8222858e2098b16e5e8355",
   }
 };
@@ -166,14 +183,21 @@ const symbol2Asset = {
   WAN: 'WAN'
 }
 
+// aave-v3
+// compound-v3
+// compound-v2
+// venus-core-pool
+// benqi-lending
+// wanlend
+
 const bip44ToChainConfig = {
-  // "2147483708": "Ethereum",
-  // "1073741826": "Arbitrum", // 
-  // "2153201998": "Wanchain",
-  // "2147484362": "BSC",
-  // "2147484614": "Polygon", // MATIC
-  // "2147484262": "Optimism",
-  // "2147492648": "Avalanche",
+  // "2147483708": "Ethereum", // ETH
+  // "1073741826": "Arbitrum", // ARETH
+  // "2153201998": "Wanchain", // WAN
+  // "2147484362": "BSC",      // BNB
+  // "2147484614": "Polygon",  // MATIC
+  // "2147484262": "Optimism", // OETH,  alias: OptimisticEthereum
+  // "2147492648": "Avalanche",// AVAX
 }
 
 for (let chain in defiChainConfigs) {
@@ -201,7 +225,7 @@ function createProvider(rpc_url) {
   }
 
   const options = {
-    timeout: 60000,
+    timeout: 30000,
     clientConfig: {
       maxReceivedFrameSize: 100000000,
       maxReceivedMessageSize: 100000000,
@@ -568,6 +592,7 @@ function tryLoadJsonObj(fileFullPath, defaultObj) {
 gTokenPairsInfo = tryLoadJsonObj(gTokenPairFilePath, {total: 0, tokenPairs: {}});
 
 /// getTokenPairs 函数
+// 哪些是bridge，哪些不是erc20
 async function getTokenPairs() {
   const chainName = 'Wanchain'
   const tokenManagerAddr = defiChainConfigs[chainName].tokenManagerAddr
@@ -812,6 +837,181 @@ async function getFees() {
 
   return gFeesInfo
 }
+
+async function getTokenPairsFees() {
+  const {feeTokenPairs} = tryLoadJsonObj(gFeesFilePath, {feesTime: 0, fees: {}, feeTokenPairs: {}})
+
+  // 获取所有tokenPair的serviceFee
+  const serviceFeeToFetch = {}
+  // 获取某条链上，需要获得的networkFee
+  const networkFeeToFetch = {}
+
+
+  const fees = {}
+
+  const serviceFeeDecoder = (data) => {
+    const rt = web3.eth.abi.decodeParameters([
+      {
+        "name": "numerator",
+        "type": "uint256"
+      },
+      {
+        "name": "denominator",
+        "type": "uint256"
+      },
+      {
+        "name": "fixedFee",
+        "type": "uint256"
+      },
+      {
+        "name": "minFeeLimit",
+        "type": "uint256"
+      },
+      {
+        "name": "maxFeeLimit",
+        "type": "uint256"
+      }
+    ], data)
+    return rt
+  }
+  const addServiceFeeToFetch = (key, id) => {
+    const [symbol, fromChainID, toChainID] = key.split('/')
+    if (!serviceFeeToFetch[key] || serviceFeeToFetch[key].id < id) {
+      if (serviceFeeToFetch[key]) {
+        console.warn(`same serviceFeeToFetch, key = ${key}, old id = ${serviceFeeToFetch[key].id}, new id = ${id}`)
+      } 
+      serviceFeeToFetch[key] = {
+        params: [symbol, fromChainID, toChainID],
+        id,
+        decoder: serviceFeeDecoder,
+      }
+    }
+  }
+  const addAllServiceFeeToFetch = (id, symbol, fromChainID, toChainID) => {
+    // 1.symbol/fromchainid/tochainid
+    // 2.symbol/fromchainid/0
+    // 3.symbol/0/tochainid
+    // 4.""/fromchainid/tochainid
+    // 5.""/fromchainid/0
+    // 6.""/0/tochainid
+    addServiceFeeToFetch(`${symbol}/${fromChainID}/${toChainID}`, id)
+    addServiceFeeToFetch(`${symbol}/${fromChainID}/0`, id)
+    addServiceFeeToFetch(`${symbol}/0/${toChainID}`, id)
+    addServiceFeeToFetch(`/${fromChainID}/${toChainID}`, id)
+    addServiceFeeToFetch(`/${fromChainID}/0`, id)
+    addServiceFeeToFetch(`/0/${toChainID}`, id)
+  }
+
+
+  const addNetworkFeeToFetch = (key, id) => {
+    let [id_, fromChainID, toChainID] = key.split('/')
+    if (!networkFeeToFetch[key] || networkFeeToFetch[key].id < id) {
+      if (networkFeeToFetch[key]) {
+        console.warn(`same networkFeeToFetch, key = ${key}, old id = ${networkFeeToFetch[key].id}, new id = ${id}`)
+      }
+      const chainConfig = bip44ToChainConfig[fromChainID]
+      if (id_ === '') {
+        networkFeeToFetch[key] = {
+          params: [[parseInt(fromChainID), parseInt(toChainID)]],
+          method: 'getFee',
+          id,
+          chainConfig,
+          decoder: (data) => web3.eth.abi.decodeParameter('uint256 contractFee', data),
+
+        }
+      } else {
+        networkFeeToFetch[key] = {
+          params: [id],
+          method: 'getTokenPairFee',
+          id,
+          chainConfig,
+          decoder: (data) => web3.eth.abi.decodeParameter('uint256 contractFee', data)
+        }
+      }
+    }
+  }
+
+  const addAllNetworkFeeToFetch = (id, symbol, fromChainID, toChainID) => {
+    // 1. cross.mapTokenPairContractFee[id]
+    // 2. cross.mapContractFee[fromchainid][tochainid]  // current = from
+    // 2. cross.mapContractFee[fromchainid][0]          // current = from
+    // 2. cross.mapContractFee[tochainid][fromchainid]  // current = to
+    // 2. cross.mapContractFee[tochainid][0]  // current = to
+    addNetworkFeeToFetch(`${id}/${fromChainID}/${toChainID}`, id)
+    addNetworkFeeToFetch(`/${fromChainID}/${toChainID}`, id)
+    addNetworkFeeToFetch(`/${fromChainID}/0`, id)
+    addNetworkFeeToFetch(`/${toChainID}/${fromChainID}`, id)
+    addNetworkFeeToFetch(`/${toChainID}/0`, id)
+  }
+  
+  for(let id in feeTokenPairs) {
+    const tokenPair = feeTokenPairs[id]
+    const {symbol, fromChainID, toChainID} = tokenPair
+    // 正向 service fee
+    addAllServiceFeeToFetch(id, symbol, fromChainID, toChainID)
+    // 反向 service fee
+    addAllServiceFeeToFetch(id, symbol, toChainID, fromChainID)
+    // 正反向 network fee
+    addAllNetworkFeeToFetch(id, symbol, fromChainID, toChainID)
+  }
+  let chain = 'Wanchain'
+  let crossConfigAddr = defiChainConfigs[chain].crossConfigAddr
+
+  let calls = []
+  let handleResults = []
+  const servicefeeRaw = {}
+  const networkfeeRaw = {}
+  for(let key in serviceFeeToFetch) {
+    const {id, params, decoder} = serviceFeeToFetch[key]
+    addContractCall(calls, chain, crossConfigAddr, crossConfigAbi, 'getCrossChainAgentFee', params, decoder)
+    handleResults.push((fee) => {
+      if (fee.numerator !== 0) {
+        servicefeeRaw[key] = fee
+      }
+    })
+  }
+  let result = await robustMultiCallBatch(chain, calls, 3)
+  if (result && result.results) {
+    let results = result.results
+    for (let i = 0; i < results.length; i++) {
+      if (handleResults[i]) {
+        handleResults[i](results[i]);
+      }
+    }
+  }
+
+
+  calls = {}
+  handleResults = {}
+  for(let key in networkFeeToFetch) {
+    const {id, params, decoder, method, chainConfig} = networkFeeToFetch[key]
+    const {chain, crossScAddr } = chainConfig
+    if (!calls[chain]) {
+      calls[chain] = []
+      handleResults[chain] = []
+    }
+    addContractCall(calls[chain], chain, crossScAddr, crossAbi, method, params, decoder)
+    handleResults[chain].push((contractFee) => {
+      if (contractFee !== 0) {
+        networkfeeRaw[key] = contractFee
+      }
+    })
+  }
+
+  for (let chain in calls) {
+    result = await robustMultiCallBatch(chain, calls[chain], 3)
+    if (result && result.results) {
+      let results = result.results
+      for (let i = 0; i < results.length; i++) {
+        if (handleResults[chain][i]) {
+          handleResults[chain][i](results[i]);
+        }
+      }
+    }
+  }
+  const gFeesRawFilePath = path.resolve(__dirname, "./config/feesRaw.json");
+  fs.writeFileSync(gFeesRawFilePath, JSON.stringify({servicefeeRaw, networkfeeRaw}, null, 2))
+}
 /// getApyTvl 函数（保留）
 async function getApyTvl() {
   const vaults = [];
@@ -972,6 +1172,8 @@ const main = async () => {
     
     // 获取APY/TVL数据
     await getApyTvl();
+
+    // await getTokenPairsFees()
     
     console.log('\n=== All tasks completed successfully ===');
   } catch (error) {
