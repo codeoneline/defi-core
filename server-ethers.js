@@ -2,8 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const axios = require('axios')
 const BigNumber = require('bignumber.js')
-const Web3 = require('web3')
-const web3 = new Web3()
+const { ethers } = require('ethers-v6')
 
 const vaultAbi = require('./abi/abi.vault.json')
 const erc20Abi = require('./abi/abi.erc20.json')
@@ -12,10 +11,6 @@ const tokenManagerAbi = require('./abi/abi.TokenManagerDelegateV2.json')
 const adapterAbi = require('./abi/abi.IAdapter.json')
 const crossConfigAbi = require('./abi/abi.ConfigurationDelegate.json')
 const crossAbi = require('./abi/abi.CrossDelegateV4.json')
-
-// 常量定义
-const BATCH_SIZE = 100
-const CACHE_TIME = 600000 // 10分钟
 
 // 默认：chain.decimals = 18
 const defiChainConfigs = {
@@ -32,7 +27,6 @@ const defiChainConfigs = {
     adapters: {
       USDT: {
         "aave-v3": '0x846a3C785882015B660977c2d6EB1233c00DAF49',
-        "wanbridge": '0xaf64eb7f9967A895FF32b3E1E7A4Bfc525A3E338',
       }
     },
     // 原始币信息
@@ -44,7 +38,6 @@ const defiChainConfigs = {
     },
     multicallAddr: "0xeefba1e63905ef1d7acba5a8513c70307c1ce441",
     crossScAddr: '0xfceaaaeb8d564a9d0e71ef36f027b9d162bc334e',
-
     tokenManagerAddr: '0xbab93311de250b5b422c705129b3617b3cb6e9e1',
   },
   "Arbitrum": {
@@ -65,7 +58,6 @@ const defiChainConfigs = {
     },
     multicallAddr: "0xb66f96e30d6a0ae64d24e392bb2dbd25155cb3a6",
     crossScAddr: '0xf7ba155556e2cd4dfe3fe26e506a14d2f4b97613',
-
     tokenManagerAddr: '0xc928c8e48647c8b0ce550c2352087b1cf5c6111e',
   },
   "Wanchain": {
@@ -84,7 +76,6 @@ const defiChainConfigs = {
     },
     multicallAddr: "0xba5934ab3056fca1fa458d30fbb3810c3eb5145f",
     crossScAddr: '0xe85b0D89CbC670733D6a40A9450D8788bE13da47',
-
     tokenManagerAddr: '0x9fdf94dff979dbecc2c1a16904bdfb41d305053a',
     crossConfigAddr: '0x6Dc2fC72584BfFa35Cc6D521a22081dD0217f3b6',
   },
@@ -108,7 +99,6 @@ const defiChainConfigs = {
     },
     multicallAddr: "0x023a33445f11c978f8a99e232e1c526ae3c0ad70",
     crossScAddr: '0xc3711bdbe7e3063bf6c22e7fed42f782ac82baee',
-
     tokenManagerAddr: '0x39af91cba3aed00e9b356ecc3675c7ef309017dd',
   },
   "Polygon": {
@@ -129,7 +119,6 @@ const defiChainConfigs = {
     },
     multicallAddr: "0x1bbc16260d5d052f1493b8f2aeee7888fed1e9ab",
     crossScAddr: '0x2216072a246a84f7b9ce0f1415dd239c9bf201ab',
-
     tokenManagerAddr: "0xc928c8e48647c8b0ce550c2352087b1cf5c6111e",
   },
   "Optimism": {
@@ -150,7 +139,6 @@ const defiChainConfigs = {
     },
     multicallAddr: "0x2dc0e2aa608532da689e89e237df582b783e552c",
     crossScAddr: '0xc6ae1db6c66d909f7bfeeeb24f9adb8620bf9dbf',
-
     tokenManagerAddr: "0x1ed3538383bbfdb80343b18f85d6c5a5fb232fb6",
   },
   "Avalanche": {
@@ -170,14 +158,7 @@ const defiChainConfigs = {
     },
     multicallAddr: "0xa4726706935901fe7dd0f23cf5d4fb19867dfc88",
     crossScAddr: '0x74e121a34a66d54c33f3291f2cdf26b1cd037c3a',
-
     tokenManagerAddr: "0xf06d72375d3bf5ab1a8222858e2098b16e5e8355",
-  }
-};
-const vaultConfigs = {
-  USDT: {
-    // address: '0x48a697A1F01C009d70BEb238103261e313e009b6'
-    address: '0x514eDEf80E22b243a943E77e1A083FC461E16D68',
   }
 };
 
@@ -210,6 +191,11 @@ const symbol2CoingeckoId =  {
 
 const coingeckoId2Symbol = value2key(symbol2CoingeckoId)
 
+const vaultConfigs = {
+  USDT: {
+    address: '0x48a697A1F01C009d70BEb238103261e313e009b6'
+  }
+};
 
 const symbol2Asset = {
   BTC: 'WBTC',
@@ -254,50 +240,31 @@ for (let chain in defiChainConfigs) {
   bip44ToChainConfig[bip44] = config
 }
 
+// 常量定义
+const BATCH_SIZE = 100
+const CACHE_TIME = 600000 // 10分钟
+
 function sleep(ms) {
-	return new Promise(function (resolve, reject) {
-		setTimeout(function () {
-			resolve();
-		}, ms);
-	})
+  return new Promise(function (resolve, reject) {
+    setTimeout(function () {
+      resolve();
+    }, ms);
+  })
 }
 
+// ethers 提供者创建函数
 const createProvider = (rpc_url) => {
-
   if (!rpc_url) {
     console.error('rpc error');
     return null;
   }
 
-  const options = {
-    timeout: 30000,
-    clientConfig: {
-      maxReceivedFrameSize: 100000000,
-      maxReceivedMessageSize: 100000000,
-      keepalive: true,
-      keepaliveInterval: -1
-    },
-    reconnect: {
-      auto: true,
-      delay: 1000,
-      maxAttempts: 10,
-      onTimeout: false
-    }
-  };
-
   if (rpc_url.startsWith('http')) {
-    return new Web3.providers.HttpProvider(rpc_url, options);
+    return new ethers.JsonRpcProvider(rpc_url, 'mainnet', {
+      staticNetwork: true,
+    });
   } else if (rpc_url.startsWith('ws')) {
-    const provider = new Web3.providers.WebsocketProvider(rpc_url, options);
-    provider.on('connect', () => console.log(`provider connect ${rpc_url}`));
-    provider.on('error', () => {
-      console.error(`provider connect error ${rpc_url}`);
-      provider.disconnect();
-    });
-    provider.on('close', () => {
-      console.error(`provider connect close ${rpc_url}`);
-    });
-    return provider;
+    return new ethers.WebSocketProvider(rpc_url);
   }
   
   console.error(`Unsupported RPC protocol: ${rpc_url}`);
@@ -310,7 +277,6 @@ class ChainManager {
     this.config = config;
     this.rpcIndex = 0;
     this.provider = null;
-    this.web3 = null;
     this.contracts = new Map();
     this.init();
   }
@@ -320,7 +286,6 @@ class ChainManager {
     if (!this.provider) {
       throw new Error(`Failed to create provider for chain`);
     }
-    this.web3 = new Web3(this.provider);
   }
 
   switchRpc() {
@@ -334,14 +299,16 @@ class ChainManager {
     console.log(`Switching RPC from ${this.config.rpcs[oldIndex]} to ${this.config.rpcs[this.rpcIndex]}`);
     const newProvider = createProvider(this.config.rpcs[this.rpcIndex]);
     if (newProvider) {
-      if (this.provider && this.provider.disconnect) {
-        this.provider.disconnect();
+      if (this.provider && this.provider.destroy) {
+        this.provider.destroy();
       }
       this.provider = newProvider;
-      this.web3.setProvider(this.provider);
-      this.contracts.forEach((contract) => {
-        contract.setProvider(this.provider);
+      // 更新所有合约的提供者
+      const updatedContracts = new Map();
+      this.contracts.forEach((contract, key) => {
+        updatedContracts.set(key, contract.connect(this.provider));
       });
+      this.contracts = updatedContracts;
       return true;
     }
     return false;
@@ -350,7 +317,7 @@ class ChainManager {
   getContract(contractAddress, abi) {
     const key = contractAddress;
     if (!this.contracts.has(key)) {
-      const contract = new this.web3.eth.Contract(abi, contractAddress);
+      const contract = new ethers.Contract(contractAddress, abi, this.provider);
       this.contracts.set(key, contract);
     }
     return this.contracts.get(key);
@@ -435,7 +402,7 @@ async function callContract(chainName, contractAddress, abi, method, params = []
   const contract = manager.getContract(contractAddress, abi);
   
   const methodCall = async () => {
-    return await contract.methods[method](...params).call();
+    return await contract[method](...params);
   };
   
   const result = await manager.callWithRetry(methodCall);
@@ -446,7 +413,11 @@ async function callContract(chainName, contractAddress, abi, method, params = []
 function addContractCall(calls, chainName, contractAddress, abi, method, params = [], decoder) {
   const manager = getChainManager(chainName);
   const contract = manager.getContract(contractAddress, abi);
-  const callData = contract.methods[method](...params).encodeABI();
+  
+  // 获取函数选择器
+  const iface = new ethers.Interface(abi);
+  const functionFragment = iface.getFunction(method);
+  const callData = iface.encodeFunctionData(functionFragment, params);
   
   calls.push({
     target: contractAddress,
@@ -483,7 +454,7 @@ async function multiCallBatch(chainName, calls, batchSize = BATCH_SIZE) {
     }));
 
     const methodCall = async () => {
-      return await multicallContract.methods.aggregate(multicallCalls).call();
+      return await multicallContract.aggregate.staticCall(multicallCalls);
     };
     
     const batchResult = await manager.callWithRetry(methodCall);
@@ -492,14 +463,14 @@ async function multiCallBatch(chainName, calls, batchSize = BATCH_SIZE) {
       throw new Error(`MultiCall batch ${Math.floor(i / adjustedBatchSize) + 1} returned null result`);
     }
 
-    const decodedResults = batchResult.returnData.map((data, index) => {
+    const decodedResults = batchResult[1].map((data, index) => {
       const callIndex = i + index;
       return calls[callIndex]?.decoder ? calls[callIndex].decoder(data) : data;
     });
     
     // 设置blockNumber（只使用第一个成功的batch）
     if (i === 0) {
-      results.blockNumber = batchResult.blockNumber;
+      results.blockNumber = Number(batchResult[0]);
     }
     
     results.push(...decodedResults);
@@ -575,14 +546,20 @@ async function initVaultAddress() {
       // 获取所有adapters
       addContractCall(
         calls, chainName, vaultAddress, vaultAbi, 'getAllAdapters', [],
-        (data) => web3.eth.abi.decodeParameter('address[]', data)
+        (data) => {
+          const iface = new ethers.Interface(vaultAbi);
+          return iface.decodeFunctionResult('getAllAdapters', data)[0];
+        }
       );
       assetHandlers.push({ type: 'adapters', asset });
       
       // 获取原币地址
       addContractCall(
         calls, chainName, vaultAddress, vaultAbi, 'asset', [],
-        (data) => web3.eth.abi.decodeParameter('address', data)
+        (data) => {
+          const iface = new ethers.Interface(vaultAbi);
+          return iface.decodeFunctionResult('asset', data)[0];
+        }
       );
       assetHandlers.push({ type: 'origin', asset });
     }
@@ -626,7 +603,10 @@ async function initVaultAddress() {
           // 获取decimals
           addContractCall(
             call2s, chainName, originResult, erc20Abi, 'decimals', [],
-            (data) => web3.eth.abi.decodeParameter('uint8', data)
+            (data) => {
+              const iface = new ethers.Interface(erc20Abi);
+              return iface.decodeFunctionResult('decimals', data)[0];
+            }
           );
           handle2s.push((decimals) => {
             const assetConfig = chainConfig.origins[asset]
@@ -679,7 +659,6 @@ function tryLoadJsonObj(fileFullPath, defaultObj) {
 gTokenPairsInfo = tryLoadJsonObj(gTokenPairFilePath, {total: 0, tokenPairs: {}});
 
 /// getTokenPairs 函数
-// 哪些是bridge，哪些不是erc20
 async function getTokenPairs() {
   const chainName = 'Wanchain'
   const tokenManagerAddr = defiChainConfigs[chainName].tokenManagerAddr
@@ -688,7 +667,7 @@ async function getTokenPairs() {
     // 获取总数
     const total = await callContract(
       chainName, tokenManagerAddr, tokenManagerAbi, 'totalTokenPairs', [],
-      (data) => parseInt(data)
+      (data) => Number(data)
     );
     console.log(`totalTokenPairs is ${total}`);
     
@@ -706,7 +685,10 @@ async function getTokenPairs() {
     for (let i = 0; i < total; i++) {
       addContractCall(
         idCalls, chainName, tokenManagerAddr, tokenManagerAbi, 'mapTokenPairIndex', [i],
-        (data) => web3.eth.abi.decodeParameter('uint256', data)
+        (data) => {
+          const iface = new ethers.Interface(tokenManagerAbi);
+          return Number(iface.decodeFunctionResult('mapTokenPairIndex', data)[0]);
+        }
       );
     }
 
@@ -738,12 +720,16 @@ async function getTokenPairs() {
       // Token pair info
       addContractCall(
         detailCalls, chainName, tokenManagerAddr, tokenManagerAbi, 'getTokenPairInfo', [id],
-        (data) => web3.eth.abi.decodeParameters([
-          {"name":"fromChainID","type":"uint256"},
-          {"name":"fromAccount","type":"bytes"},
-          {"name":"toChainID","type":"uint256"},
-          {"name":"toAccount","type":"bytes"}
-        ], data)
+        (data) => {
+          const iface = new ethers.Interface(tokenManagerAbi);
+          const result = iface.decodeFunctionResult('getTokenPairInfo', data);
+          return {
+            fromChainID: Number(result[0]),
+            fromAccount: result[1],
+            toChainID: Number(result[2]),
+            toAccount: result[3]
+          };
+        }
       );
       detailHandlers.push((tokenPairInfo) => {
         const {fromChainID, fromAccount, toChainID, toAccount} = tokenPairInfo;
@@ -756,13 +742,17 @@ async function getTokenPairs() {
       // Ancestor info
       addContractCall(
         detailCalls, chainName, tokenManagerAddr, tokenManagerAbi, 'getAncestorInfo', [id],
-        (data) => web3.eth.abi.decodeParameters([
-          {"name":"account","type":"bytes"},
-          {"name":"name","type":"string"},
-          {"name":"symbol","type":"string"},
-          {"name":"decimals","type":"uint8"},
-          {"name":"chainId","type":"uint256"}
-        ], data)
+        (data) => {
+          const iface = new ethers.Interface(tokenManagerAbi);
+          const result = iface.decodeFunctionResult('getAncestorInfo', data);
+          return {
+            account: result[0],
+            name: result[1],
+            symbol: result[2],
+            decimals: Number(result[3]),
+            chainId: Number(result[4])
+          };
+        }
       );
       detailHandlers.push((ancestorInfo) => {
         const {account, name, symbol, decimals, chainId} = ancestorInfo;
@@ -899,7 +889,7 @@ const formatFeeDetail = (feeDetail, fromConfig, tokenSymbol) => {
 }
 
 const gFeesFilePath = path.resolve(__dirname, "./config/fees.json");
-let gFeesInfo = tryLoadJsonObj(gFeesFilePath, {feesTime: 0, bridgeFees: {}, feeTokenPairs: {}})
+const gFeesInfo = tryLoadJsonObj(gFeesFilePath, {feesTime: 0, bridgeFees: {}, feeTokenPairs: {}})
 async function getFees() {
   await getPrices()
   const now = Date.now()
@@ -951,13 +941,10 @@ async function getFees() {
         }
       }
     }
-    gFeesInfo = {}
     gFeesInfo.feesTime = Date.now()
     gFeesInfo.feeTokenPairs = feeTokenPairs
     gFeesInfo.bridgeFees = fees
     fs.writeFileSync(gFeesFilePath, JSON.stringify(gFeesInfo, null, 2))
-    // const gApyTvlFilePath = path.resolve(__dirname, "./config/apyTvls.json");
-    // fs.writeFileSync(gApyTvlFilePath, JSON.stringify(rt, null, 2))
   }
 
   return gFeesInfo
@@ -966,24 +953,21 @@ async function getFees() {
 async function getTokenPairsFees() {
   const {feeTokenPairs} = tryLoadJsonObj(gFeesFilePath, {feesTime: 0, fees: {}, feeTokenPairs: {}})
 
-  // 获取所有tokenPair的serviceFee
   const serviceFeeToFetch = {}
-  // 获取某条链上，需要获得的networkFee
   const networkFeeToFetch = {}
 
-
-  const fees = {}
-
   const serviceFeeDecoder = (data) => {
-    const rt = web3.eth.abi.decodeParameters([
-      {"name": "numerator", "type": "uint256"},
-      {"name": "denominator", "type": "uint256"},
-      {"name": "fixedFee", "type": "uint256"},
-      {"name": "minFeeLimit", "type": "uint256"},
-      {"name": "maxFeeLimit","type": "uint256"}
-    ], data)
-    return rt
+    const iface = new ethers.Interface(crossConfigAbi);
+    const result = iface.decodeFunctionResult('getCrossChainAgentFee', data);
+    return {
+      numerator: result[0].toString(),
+      denominator: result[1].toString(),
+      fixedFee: result[2].toString(),
+      minFeeLimit: result[3].toString(),
+      maxFeeLimit: result[4].toString()
+    };
   }
+
   const addServiceFeeToFetch = (key, id) => {
     const [symbol, fromChainID, toChainID] = key.split('/')
     if (!serviceFeeToFetch[key] || serviceFeeToFetch[key].id < id) {
@@ -997,6 +981,7 @@ async function getTokenPairsFees() {
       }
     }
   }
+
   const addAllServiceFeeToFetch = (id, symbol, fromChainID, toChainID) => {
     // 1.symbol/fromchainid/tochainid
     // 2.symbol/fromchainid/0
@@ -1012,6 +997,10 @@ async function getTokenPairsFees() {
     addServiceFeeToFetch(`/0/${toChainID}`, id)
   }
 
+  const networkFeeDecoder = (data) => {
+    const iface = new ethers.Interface(crossAbi);
+    return iface.decodeFunctionResult('getFee', data)[0].toString();
+  }
 
   const addNetworkFeeToFetch = (key, id) => {
     let [id_, fromChainID, toChainID] = key.split('/')
@@ -1026,8 +1015,7 @@ async function getTokenPairsFees() {
           method: 'getFee',
           id,
           chainConfig,
-          decoder: (data) => web3.eth.abi.decodeParameter('uint256 contractFee', data),
-
+          decoder: networkFeeDecoder,
         }
       } else {
         networkFeeToFetch[key] = {
@@ -1035,7 +1023,10 @@ async function getTokenPairsFees() {
           method: 'getTokenPairFee',
           id,
           chainConfig,
-          decoder: (data) => web3.eth.abi.decodeParameter('uint256 contractFee', data)
+          decoder: (data) => {
+            const iface = new ethers.Interface(crossAbi);
+            return iface.decodeFunctionResult('getTokenPairFee', data)[0].toString();
+          }
         }
       }
     }
@@ -1064,6 +1055,7 @@ async function getTokenPairsFees() {
     // 正反向 network fee
     addAllNetworkFeeToFetch(id, symbol, fromChainID, toChainID)
   }
+
   let chain = 'Wanchain'
   let crossConfigAddr = defiChainConfigs[chain].crossConfigAddr
 
@@ -1071,6 +1063,7 @@ async function getTokenPairsFees() {
   let handleResults = []
   const servicefeeRaw = {}
   const networkfeeRaw = {}
+  
   for(let key in serviceFeeToFetch) {
     const {id, params, decoder} = serviceFeeToFetch[key]
     addContractCall(calls, chain, crossConfigAddr, crossConfigAbi, 'getCrossChainAgentFee', params, decoder)
@@ -1080,6 +1073,7 @@ async function getTokenPairsFees() {
       }
     })
   }
+
   let result = await robustMultiCallBatch(chain, calls, 3)
   if (result && result.results) {
     let results = result.results
@@ -1089,7 +1083,6 @@ async function getTokenPairsFees() {
       }
     }
   }
-
 
   calls = {}
   handleResults = {}
@@ -1119,6 +1112,7 @@ async function getTokenPairsFees() {
       }
     }
   }
+  
   const gFeesRawFilePath = path.resolve(__dirname, "./config/feesRaw.json");
   fs.writeFileSync(gFeesRawFilePath, JSON.stringify({servicefeeRaw, networkfeeRaw}, null, 2))
 }
@@ -1155,7 +1149,10 @@ const getVaults = async(supportProjects) => {
       // 获取总持仓
       addContractCall(
         calls, chainName, vaultAddress, vaultAbi, 'totalAssets', [],
-        (data) => web3.eth.abi.decodeParameter('uint256', data)
+        (data) => {
+          const iface = new ethers.Interface(vaultAbi);
+          return iface.decodeFunctionResult('totalAssets', data)[0].toString();
+        }
       );
       handleResults.push((totalAssets) => {
         vault.totalAssets = BigNumber(totalAssets || 0).dividedBy(tokenUnit).toString();
@@ -1169,7 +1166,10 @@ const getVaults = async(supportProjects) => {
         
         addContractCall(
           calls, chainName, adapterAddr, adapterAbi, 'totalAssets', [],
-          (data) => web3.eth.abi.decodeParameter('uint256', data)
+          (data) => {
+            const iface = new ethers.Interface(adapterAbi);
+            return iface.decodeFunctionResult('totalAssets', data)[0].toString();
+          }
         );
         handleResults.push((totalAssets) => {
           vault.yielding[project] = BigNumber(totalAssets || 0).dividedBy(tokenUnit).toString();
@@ -1182,7 +1182,10 @@ const getVaults = async(supportProjects) => {
         const multicallAddr = chainConfig.multicallAddr;
         addContractCall(
           calls, chainName, multicallAddr, multiCallAbi, 'getEthBalance', [vaultAddress],
-          (data) => web3.eth.abi.decodeParameter('uint256', data)
+          (data) => {
+            const iface = new ethers.Interface(multiCallAbi);
+            return iface.decodeFunctionResult('getEthBalance', data)[0].toString();
+          }
         );
         handleResults.push((balance) => {
           vault.availableBalance = BigNumber(balance || 0).dividedBy(chainUnit).toString();
@@ -1190,7 +1193,10 @@ const getVaults = async(supportProjects) => {
       } else if (assetOrigin?.address) {
         addContractCall(
           calls, chainName, assetOrigin.address, erc20Abi, 'balanceOf', [vaultAddress],
-          (data) => web3.eth.abi.decodeParameter('uint256', data)
+          (data) => {
+            const iface = new ethers.Interface(erc20Abi);
+            return iface.decodeFunctionResult('balanceOf', data)[0].toString();
+          }
         );
         handleResults.push((balance) => {
           vault.availableBalance = BigNumber(balance || 0).dividedBy(tokenUnit).toString();
@@ -1257,7 +1263,10 @@ async function testAllChain() {
       
       addContractCall(
         calls, chainName, contractAddress, vaultAbi, 'getAllAdapters', [],
-        (data) => web3.eth.abi.decodeParameter('address[]', data)
+        (data) => {
+          const iface = new ethers.Interface(vaultAbi);
+          return iface.decodeFunctionResult('getAllAdapters', data)[0];
+        }
       );
       
       const result = await robustMultiCallBatch(chainName, calls, 2);
@@ -1280,7 +1289,7 @@ const main = async () => {
     // await testAllChain();
     
     // 初始化vault地址
-    await initVaultAddress();
+    // await initVaultAddress();
     
     // 获取token pairs
     // await getTokenPairs();
